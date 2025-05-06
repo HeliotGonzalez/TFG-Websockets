@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import contextlib
 from urllib.parse import urlparse, parse_qs
 
 import websockets
@@ -12,6 +13,10 @@ from app.redis_listener import start_redis_listener
 
 logging.basicConfig(level=logging.INFO,
                     format="%(levelname)s %(asctime)s %(message)s")
+
+# keep connections alive for at most 30 seconds without activity
+IDLE_TIMEOUT = 3000
+
 
 # ----------------------------------------------------------------------
 # helpers
@@ -37,11 +42,10 @@ def handshake_get_user_id(path: str) -> int | None:
     except Exception:
         return None
 
-# ----------------------------------------------------------------------
-# WebSocket handler (NEW signature: one argument)
-# ----------------------------------------------------------------------
+
+
 async def ws_handler(ws):
-    # 1) basic token in query string
+    # 1) extract & validate user_id
     user_id = handshake_get_user_id(extract_path(ws))
     if not user_id:
         await ws.close(code=4000, reason="unauthorized")
@@ -55,17 +59,27 @@ async def ws_handler(ws):
         # initial greeting
         await ws.send(json.dumps({"type": "system", "message": "welcome"}))
 
-        # 3) keep the socket open until the client closes it
-        async for _ in ws:
-            pass
+        # 3) main receive loop with idle timeout
+        while True:
+            try:
+                # wait for next message, but give up after IDLE_TIMEOUT seconds
+                message = await asyncio.wait_for(ws.recv(), timeout=IDLE_TIMEOUT)
+            except asyncio.TimeoutError:
+                logging.info("🔌 Usuario %s inactivo durante %ds, desconectando", user_id, IDLE_TIMEOUT)
+                break
+            except (ConnectionClosedOK, ConnectionClosedError):
+                # client closed connection normally or due to error
+                break
+            else:
+                # handle the incoming message (if you need to)
+                logging.debug("📥 Recibido de %s: %r", user_id, message)
+                # … your message-handling logic here …
 
-    except (ConnectionClosedOK, ConnectionClosedError):
-        pass
     except Exception as err:
-        logging.error("connection handler failed: %s", err)
+        logging.error("connection handler failed for %s: %s", user_id, err)
 
     finally:
-        # 4) unregister
+        # 4) unregister and clean up
         await manager.unregister(user_id, ws)
         logging.info("❌ Usuario %s desconectado", user_id)
 
@@ -73,10 +87,15 @@ async def ws_handler(ws):
 # entry point
 # ----------------------------------------------------------------------
 async def main():
-    asyncio.create_task(start_redis_listener())        # Redis listener
+    redis_task = asyncio.create_task(start_redis_listener())
     async with websockets.serve(ws_handler, WS_HOST, WS_PORT):
         logging.info("🚀 WS server listening on %s:%s", WS_HOST, WS_PORT)
-        await asyncio.Future()  # run forever
+        try:
+            await asyncio.Future()           # run forever
+        finally:
+            redis_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await redis_task
 
 if __name__ == "__main__":
     asyncio.run(main())
