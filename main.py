@@ -11,11 +11,10 @@ from config import WS_HOST, WS_PORT
 from app.connection_manager import manager
 from app.redis_listener import start_redis_listener
 
-logging.basicConfig(level=logging.INFO,
-                    format="%(levelname)s %(asctime)s %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s %(message)s")
 
 # keep connections alive for at most 30 seconds without activity
-IDLE_TIMEOUT = 3000
+IDLE_TIMEOUT = 30
 
 
 # ----------------------------------------------------------------------
@@ -28,9 +27,9 @@ def extract_path(ws) -> str:
     • ≤13.x  -> ws.path
     • ≥14.x  -> ws.request.path
     """
-    if hasattr(ws, "path"):                       # ≤ 13.x:contentReference[oaicite:3]{index=3}
+    if hasattr(ws, "path"):
         return ws.path
-    if hasattr(ws, "request") and hasattr(ws.request, "path"):  # ≥ 14.0:contentReference[oaicite:4]{index=4}
+    if hasattr(ws, "request") and hasattr(ws.request, "path"):
         return ws.request.path
     return ""  # fallback – shouldn't happen
 
@@ -91,7 +90,7 @@ async def main():
     async with websockets.serve(ws_handler, WS_HOST, WS_PORT):
         logging.info("🚀 WS server listening on %s:%s", WS_HOST, WS_PORT)
         try:
-            await asyncio.Future()           # run forever
+            await asyncio.Future()
         finally:
             redis_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):

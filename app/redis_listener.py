@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 CHANNELS = {
     "friend-request": EventType.FRIEND_REQUEST,
     "chat":           EventType.CHAT,
+    "friend-accepted": EventType.FRIEND_ACCEPTED,
 }
 
 def normalize_to_json(raw: str) -> str:
@@ -53,6 +54,8 @@ async def start_redis_listener():
 
                 raw = msg["data"]
                 # intentamos JSON directo...
+                log.info("🔔 RAW Redis en '%s': %r", msg["channel"], raw)
+                
                 try:
                     data = json.loads(raw)
                 except (json.JSONDecodeError, TypeError):
@@ -64,6 +67,9 @@ async def start_redis_listener():
                     except Exception as e:
                         log.error("No se pudo parsear tras normalizar: %s", e)
                         continue
+                else:
+                    # **Aquí** ya sabes que tu Laravel publicó JSON válido
+                    log.info("✅ JSON parseado correctamente: %s", data)
 
                 event_type = CHANNELS.get(msg["channel"])
                 if event_type:
