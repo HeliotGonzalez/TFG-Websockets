@@ -6,5 +6,6 @@ REDIS_URL = "redis://localhost:6379"
 CHANNELS = {
     "friend_request": "friend-request",
     "friend-accepted": "friend-accepted",
+    "friend-denied": "friend-denied",
     "chat": "chat",
 }

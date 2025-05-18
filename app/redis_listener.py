@@ -41,8 +41,7 @@ async def start_redis_listener():
         try:
             client = aioredis.from_url(
                 REDIS_URL,
-                decode_responses=True,
-                encoding="latin-1"
+                decode_responses=True
             )
             pubsub = client.pubsub()
             await pubsub.subscribe(*CHANNELS.keys())
@@ -55,20 +54,12 @@ async def start_redis_listener():
                 raw = msg["data"]
                 # intentamos JSON directo...
                 log.info("🔔 RAW Redis en '%s': %r", msg["channel"], raw)
-                
                 try:
                     data = json.loads(raw)
-                except (json.JSONDecodeError, TypeError):
-                    # ...si falla, normalizamos y reintentamos
-                    fixed = normalize_to_json(raw)
-                    log.warning("Normalizando Redis→JSON: %r → %r", raw, fixed)
-                    try:
-                        data = json.loads(fixed)
-                    except Exception as e:
-                        log.error("No se pudo parsear tras normalizar: %s", e)
-                        continue
+                except (json.JSONDecodeError, TypeError) as e:
+                    log.error("JSON malformado en canal %s: %s – %r", msg["channel"], e, raw)
+                    continue
                 else:
-                    # **Aquí** ya sabes que tu Laravel publicó JSON válido
                     log.info("✅ JSON parseado correctamente: %s", data)
 
                 event_type = CHANNELS.get(msg["channel"])
