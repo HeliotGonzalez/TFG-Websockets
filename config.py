@@ -8,4 +8,5 @@ CHANNELS = {
     "friend-accepted": "friend-accepted",
     "friend-denied": "friend-denied",
     "chat": "chat",
+    "video-corrected": "video-corrected"
 }

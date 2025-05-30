@@ -16,6 +16,7 @@ CHANNELS = {
     "friend-request": EventType.FRIEND_REQUEST,
     "chat":           EventType.CHAT,
     "friend-accepted": EventType.FRIEND_ACCEPTED,
+    "video-corrected": EventType.VIDEO_CORRECTED,
 }
 
 def normalize_to_json(raw: str) -> str:

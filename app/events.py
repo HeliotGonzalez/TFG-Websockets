@@ -6,4 +6,5 @@ class EventType(Enum):
     CHAT           = "chat"
     FRIEND_ACCEPTED = "friend-accepted"
     FRIEND_DENIED = "friend-denied"
+    VIDEO_CORRECTED = "video-corrected"
     
